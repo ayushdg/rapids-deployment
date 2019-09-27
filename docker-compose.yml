@@ -1,0 +1,44 @@
+version: "3"
+
+services:
+
+  scheduler:
+    image: rapidsai/rapidsai-nightly:cuda10.0-base-ubuntu18.04
+    ports:
+     - "8786:8786"
+     - "9786:9786"
+     - "8787:8787"
+     - "8888:8888"
+       #command: /conda/envs/rapids/bin/jupyter-lab --allow-root --ip='0.0.0.0' --NotebookApp.token='' && /conda/envs/rapids/bin/dask-scheduler
+    command: /conda/envs/rapids/bin/dask-scheduler
+    networks:
+      - rapids
+    volumes:
+      - &data "/data:/data"
+    deploy:
+      replicas: 1
+      #restart_policy:
+      #condition: on-failure
+      placement:
+        constraints: [node.role == worker]
+
+  worker:
+    image: rapidsai/rapidsai-nightly:cuda10.0-base-ubuntu18.04
+    command: /conda/envs/rapids/bin/dask-cuda-worker scheduler:8786
+    environment:
+      - "affinity:container!=worker*"
+    networks:
+      - rapids
+    volumes:
+      - *data
+    depends_on:
+      - scheduler
+    deploy:
+      replicas: 1
+      #restart_policy:
+      #condition: on-failure
+      placement:
+        constraints: [node.role == worker]
+
+networks:
+  rapids:
